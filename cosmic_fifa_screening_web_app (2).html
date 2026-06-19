@@ -1,0 +1,1065 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cosmic FIFA World Cup Screening</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts - Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #0a0a1a;
+      color: #e2e8f0;
+      overflow-x: hidden;
+    }
+
+    @keyframes twinkle {
+      0%, 100% { opacity: 0.15; transform: scale(1); }
+      50% { opacity: 0.9; transform: scale(1.4); }
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-16px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(40px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes glow {
+      0%, 100% { box-shadow: 0 0 12px rgba(124,58,237,0.6); }
+      50% { box-shadow: 0 0 28px rgba(124,58,237,1), 0 0 48px rgba(37,99,235,0.5); }
+    }
+    @keyframes modalIn {
+      from { opacity: 0; transform: scale(0.94) translateY(20px); }
+      to { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    @keyframes pulse-glow {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+
+    .animate-glow {
+      animation: glow 2.5s infinite;
+    }
+    .animate-pulse-glow {
+      animation: pulse-glow 1.5s infinite;
+    }
+    .animate-modal-in {
+      animation: modalIn 0.25s ease-out forwards;
+    }
+    .animate-slide-up {
+      animation: slideUp 0.4s ease-out forwards;
+    }
+    .animate-fade-in {
+      animation: fadeIn 0.3s ease-out forwards;
+    }
+
+    /* Print styling rules */
+    @media print {
+      body > *:not(#ticket-print-wrapper) { display: none !important; }
+      #ticket-print-wrapper { display: block !important; position: static !important; width: 100% !important; }
+    }
+  </style>
+</head>
+<body class="min-h-screen relative selection:bg-purple-600 selection:text-white">
+
+  <!-- Fixed background star-field container -->
+  <div id="star-field" class="fixed inset-0 z-0 pointer-events-none"></div>
+
+  <!-- Root application wrapper -->
+  <div id="app" class="relative z-10 flex flex-col min-h-screen"></div>
+
+  <script>
+    // LocalStorage utility wrapper
+    const LS = {
+      get: (k, def = null) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : def; } catch { return def; } },
+      set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+      del: (k) => { try { localStorage.removeItem(k); } catch {} },
+    };
+
+    const rand = (min, max) => Math.random() * (max - min) + min;
+    const genId = () => "COSMIC-" + Math.random().toString(36).substr(2, 6).toUpperCase();
+
+    // Default Match Configuration
+    const DEFAULT_MATCHES = [
+      { id: "match1", name: "FINALS", label: "FINALS", team1: "Argentina", team2: "Portugal", date: "20 July 2026", time: "12:30 AM", price: 599, active: true, totalSlots: 20 },
+      { id: "match2", name: "Match 2", label: "Yet to Announce", team1: "?", team2: "?", date: "TBA", time: "TBA", price: 599, active: false, totalSlots: 20 },
+      { id: "match3", name: "Match 3", label: "Yet to Announce", team1: "?", team2: "?", date: "TBA", time: "TBA", price: 599, active: false, totalSlots: 20 },
+      { id: "match4", name: "Match 4", label: "Yet to Announce", team1: "?", team2: "?", date: "TBA", time: "TBA", price: 599, active: false, totalSlots: 20 },
+      { id: "match5", name: "Match 5", label: "Yet to Announce", team1: "?", team2: "?", date: "TBA", time: "TBA", price: 599, active: false, totalSlots: 20 },
+      { id: "match6", name: "Match 6", label: "Yet to Announce", team1: "?", team2: "?", date: "TBA", time: "TBA", price: 599, active: false, totalSlots: 20 },
+    ];
+
+    // Teams SVG styling library
+    const TEAM_DATA = {
+      "?":           { color: "#7c3aed", text: "?",   bg: "#1a0a2e" },
+      "Argentina":   { color: "#75aadb", text: "ARG", bg: "#0a1628" },
+      "Brazil":      { color: "#009c3b", text: "BRA", bg: "#0a1a0f" },
+      "France":      { color: "#002395", text: "FRA", bg: "#0a0a28" },
+      "England":     { color: "#cf101a", text: "ENG", bg: "#1a0a0a" },
+      "Germany":     { color: "#d3d3d3", text: "GER", bg: "#1a1a1a" },
+      "Spain":       { color: "#c60b1e", text: "ESP", bg: "#1a0a0a" },
+      "Portugal":    { color: "#006600", text: "POR", bg: "#0a1a0a" },
+      "Netherlands": { color: "#ff6600", text: "NED", bg: "#1a0f00" },
+      "Belgium":     { color: "#ef3340", text: "BEL", bg: "#1a0a0a" },
+      "Croatia":     { color: "#ff0000", text: "CRO", bg: "#1a0a0a" },
+      "Morocco":     { color: "#006233", text: "MAR", bg: "#0a1a0f" },
+      "Japan":       { color: "#bc002d", text: "JPN", bg: "#1a0a0a" },
+      "USA":         { color: "#b22234", text: "USA", bg: "#0a0a1a" },
+      "Mexico":      { color: "#006847", text: "MEX", bg: "#0a1a10" },
+      "Australia":   { color: "#ffcd00", text: "AUS", bg: "#1a1500" },
+      "Switzerland": { color: "#d52b1e", text: "SUI", bg: "#1a0a0a" },
+      "Senegal":     { color: "#00853f", text: "SEN", bg: "#0a1a0f" },
+      "Poland":      { color: "#dc143c", text: "POL", bg: "#1a0a0a" },
+      "South Korea": { color: "#cd2e3a", text: "KOR", bg: "#1a0a0a" },
+      "Ghana":       { color: "#006b3f", text: "GHA", bg: "#0a1a0f" },
+      "Cameroon":    { color: "#007a5e", text: "CMR", bg: "#0a1a15" },
+      "Serbia":      { color: "#c6363c", text: "SRB", bg: "#1a0a0a" },
+      "Uruguay":     { color: "#75aadb", text: "URU", bg: "#0a1628" },
+      "Ecuador":     { color: "#ffda00", text: "ECU", bg: "#1a1500" },
+      "Qatar":       { color: "#8d1b3d", text: "QAT", bg: "#1a0a10" },
+      "Canada":      { color: "#d52b1e", text: "CAN", bg: "#1a0a0a" },
+      "Wales":       { color: "#c8102e", text: "WAL", bg: "#1a0a0a" },
+      "Denmark":     { color: "#c8102e", text: "DEN", bg: "#1a0a0a" },
+      "Tunisia":     { color: "#e70013", text: "TUN", bg: "#1a0a0a" },
+      "Costa Rica":  { color: "#002b7f", text: "CRC", bg: "#0a0a1a" },
+      "Saudi Arabia":{ color: "#006c35", text: "KSA", bg: "#0a1a0f" },
+      "Iran":        { color: "#239f40", text: "IRN", bg: "#0a1a0f" },
+    };
+
+    // Global App State
+    const STATE = {
+      user: LS.get("cosmicUser"),
+      isAdmin: LS.get("cosmicAdminSession", false),
+      matches: LS.get("cosmicMatches", DEFAULT_MATCHES),
+      slots: {},
+      bookingMatch: null,
+      payStep: null, // { match, people, total }
+      tallyStep: null, // { match, people, total }
+      ticketData: null,
+      toast: null,
+      
+      // Modal controls
+      showAuth: false,
+      showAdminAuth: false,
+      showMyTickets: false,
+      
+      // Form values (Exclusively Phone OTP authentication)
+      authName: "",
+      authPhone: "",
+      authOtpSent: false,
+      authOtp: "",
+      authError: "",
+      
+      adminUser: "",
+      adminPass: "",
+      adminError: "",
+      
+      // Admin dashboard state
+      localMatches: [],
+      confirmCancelBooking: null,
+    };
+
+    // Initialize remaining seats
+    function initSlots() {
+      STATE.matches.forEach(m => {
+        STATE.slots[m.id] = LS.get(`cosmicSlots_${m.id}`, m.totalSlots);
+      });
+    }
+
+    // Dynamic Star Field Generation
+    function renderStarField() {
+      const field = document.getElementById("star-field");
+      field.innerHTML = "";
+      for (let i = 0; i < 120; i++) {
+        const star = document.createElement("div");
+        star.style.position = "absolute";
+        star.style.top = `${rand(0, 100)}%`;
+        star.style.left = `${rand(0, 100)}%`;
+        const size = rand(1, 3);
+        star.style.width = `${size}px`;
+        star.style.height = `${size}px`;
+        star.style.borderRadius = "50%";
+        star.style.backgroundColor = "#fff";
+        const duration = rand(2, 6);
+        const delay = rand(0, 6);
+        star.style.animation = `twinkle ${duration}s ${delay}s infinite ease-in-out`;
+        field.appendChild(star);
+      }
+    }
+
+    // Toast alerts helper
+    function showToast(msg) {
+      STATE.toast = msg;
+      renderApp();
+      setTimeout(() => {
+        if (STATE.toast === msg) {
+          STATE.toast = null;
+          renderApp();
+        }
+      }, 3200);
+    }
+
+    // Team badge builder
+    function getTeamBadgeSVG(team, size = 60) {
+      const d = TEAM_DATA[team] || TEAM_DATA["?"];
+      const textLength = d.text.length;
+      const fontSize = textLength > 2 ? "11" : "14";
+      return `
+        <svg width="${size}" height="${size}" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg" class="inline-block transition-transform hover:scale-105 duration-300">
+          <circle cx="30" cy="30" r="28" fill="${d.bg}" stroke="${d.color}" stroke-width="2.5"/>
+          <text x="30" y="37" text-anchor="middle" fill="${d.color}"
+            font-size="${fontSize}" font-weight="700" font-family="system-ui,sans-serif">
+            ${d.text}
+          </text>
+        </svg>
+      `;
+    }
+
+    // Modal closing helper
+    function closeAllModals() {
+      STATE.showAuth = false;
+      STATE.showAdminAuth = false;
+      STATE.showMyTickets = false;
+      STATE.payStep = null;
+      STATE.tallyStep = null;
+      STATE.ticketData = null;
+      STATE.bookingMatch = null;
+      renderApp();
+    }
+
+    // Booking actions
+    function handleBookNow(matchId) {
+      const match = STATE.matches.find(m => m.id === matchId);
+      if (!match) return;
+
+      if (!STATE.user) {
+        STATE.bookingMatch = match;
+        STATE.showAuth = true;
+        STATE.authError = "";
+        renderApp();
+        return;
+      }
+
+      STATE.bookingMatch = match;
+      setPayStepData(match, 1);
+    }
+
+    function setPayStepData(match, people) {
+      const base = match.price;
+      const subtotal = base * people;
+      const discount = people === 2 ? Math.round(subtotal * 0.10) : 0;
+      const total = subtotal - discount;
+
+      STATE.payStep = {
+        match,
+        people,
+        total,
+        discount,
+        base,
+        subtotal
+      };
+      renderApp();
+    }
+
+    // Complete direct transition from price breakdown to tally step
+    function handlePaid() {
+      if (!STATE.payStep) return;
+      
+      STATE.tallyStep = {
+        match: STATE.payStep.match,
+        people: STATE.payStep.people,
+        total: STATE.payStep.total
+      };
+      STATE.payStep = null;
+      renderApp();
+    }
+
+    function handleConfirmBooking() {
+      if (!STATE.tallyStep) return;
+
+      const { match, people, total } = STATE.tallyStep;
+      const counter = LS.get(`cosmicSeatCounter_${match.id}`, 0);
+      const seats = Array.from({ length: people }, (_, i) => String(counter + i + 1).padStart(2, "0"));
+      LS.set(`cosmicSeatCounter_${match.id}`, counter + people);
+
+      // Decrement match slots
+      const curSlots = LS.get(`cosmicSlots_${match.id}`, match.totalSlots);
+      const newSlots = Math.max(0, curSlots - people);
+      LS.set(`cosmicSlots_${match.id}`, newSlots);
+      STATE.slots[match.id] = newSlots;
+
+      const booking = {
+        bookingId: genId(),
+        matchId: match.id,
+        matchName: match.name,
+        date: match.date,
+        time: match.time,
+        venue: "Aston Gaming Arena, Ambernath Station",
+        seats,
+        userName: STATE.user.name,
+        userId: STATE.user.id,
+        people,
+        total,
+        timestamp: Date.now(),
+        cancelled: false,
+      };
+
+      // Personal history
+      const ubKey = `cosmicBookings_${STATE.user.id}`;
+      const ub = LS.get(ubKey, []);
+      LS.set(ubKey, [...ub, booking]);
+
+      // Global history
+      const ab = LS.get("cosmicAllBookings", []);
+      LS.set("cosmicAllBookings", [...ab, booking]);
+
+      STATE.tallyStep = null;
+      STATE.bookingMatch = null;
+      STATE.ticketData = booking;
+      showToast("🎉 Seat registration confirmed!");
+    }
+
+    // Authentication Workflows - Phone OTP exclusively
+    function sendOtp() {
+      if (!STATE.authName.trim()) {
+        STATE.authError = "Please enter your Full Name.";
+        renderApp();
+        return;
+      }
+      if (STATE.authPhone.length < 10) {
+        STATE.authError = "Enter a valid 10-digit phone number.";
+        renderApp();
+        return;
+      }
+      STATE.authOtpSent = true;
+      STATE.authError = "";
+      renderApp();
+    }
+
+    function verifyOtp() {
+      if (STATE.authOtp !== "123456") {
+        STATE.authError = "Invalid OTP. (Demo Verification: 123456)";
+        renderApp();
+        return;
+      }
+      
+      const user = { 
+        id: STATE.authPhone, 
+        name: STATE.authName.trim(), 
+        type: "phone", 
+        phone: STATE.authPhone 
+      };
+      
+      LS.set("cosmicUser", user);
+      STATE.user = user;
+      STATE.showAuth = false;
+      showToast(`Welcome, ${user.name}!`);
+
+      if (STATE.bookingMatch) {
+        setPayStepData(STATE.bookingMatch, 1);
+      } else {
+        renderApp();
+      }
+    }
+
+    function handleLogout() {
+      LS.del("cosmicUser");
+      STATE.user = null;
+      STATE.showMyTickets = false;
+      showToast("Log out completed.");
+    }
+
+    function loginAdmin() {
+      if (STATE.adminUser === "shaugupta127" && STATE.adminPass === "shaurya127") {
+        LS.set("cosmicAdminSession", true);
+        STATE.isAdmin = true;
+        STATE.showAdminAuth = false;
+        STATE.localMatches = STATE.matches.map(m => ({ ...m }));
+        showToast("Organizer access granted.");
+      } else {
+        STATE.adminError = "Invalid organizer credentials.";
+        renderApp();
+      }
+    }
+
+    // Exit Organizer Panel
+    function logoutAdmin() {
+      LS.del("cosmicAdminSession");
+      STATE.isAdmin = false;
+      STATE.matches = LS.get("cosmicMatches", DEFAULT_MATCHES);
+      renderApp();
+    }
+
+    // Admin Settings
+    function saveMatchSettings() {
+      LS.set("cosmicMatches", STATE.localMatches);
+      STATE.matches = STATE.localMatches.map(m => ({ ...m }));
+      showToast("✅ Settings updated successfully.");
+    }
+
+    // Helper functions for dynamically modifying admin setup states
+    function updateLocalMatchField(idx, field, val) {
+      STATE.localMatches[idx][field] = val;
+      renderApp();
+    }
+
+    function setLocalMatchStatus(idx, activeVal) {
+      STATE.localMatches[idx].active = activeVal;
+      renderApp();
+    }
+
+    function handleAdminCancelBooking(booking) {
+      const allBookings = LS.get("cosmicAllBookings", []);
+      const updated = allBookings.map(bk => bk.bookingId === booking.bookingId ? { ...bk, cancelled: true } : bk);
+      LS.set("cosmicAllBookings", updated);
+      
+      const cur = LS.get(`cosmicSlots_${booking.matchId}`, 20);
+      LS.set(`cosmicSlots_${booking.matchId}`, cur + booking.people);
+      STATE.slots[booking.matchId] = cur + booking.people;
+
+      const ubKey = `cosmicBookings_${booking.userId}`;
+      const ub = LS.get(ubKey, []);
+      LS.set(ubKey, ub.map(bk => bk.bookingId === booking.bookingId ? { ...bk, cancelled: true } : bk));
+
+      STATE.confirmCancelBooking = null;
+      showToast(`Booking ${booking.bookingId} cancelled.`);
+    }
+
+    // Unified template renders
+    function renderApp() {
+      const root = document.getElementById("app");
+      
+      if (STATE.isAdmin && STATE.localMatches.length === 0) {
+        STATE.localMatches = STATE.matches.map(m => ({ ...m }));
+      }
+
+      // Organizer Panel Template
+      if (STATE.isAdmin) {
+        const allBookings = LS.get("cosmicAllBookings", []);
+        root.innerHTML = `
+          <div class="min-h-screen p-6 md:p-12 max-w-7xl mx-auto animate-fade-in">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
+              <div>
+                <h1 class="text-3xl font-black text-slate-100 tracking-tight flex items-center gap-2">
+                  <span>🛸 Organizer Dashboard</span>
+                </h1>
+                <p class="text-slate-400 text-sm mt-1">Full control over live screenings and slots reservation</p>
+              </div>
+              <button onclick="logoutAdmin()" class="px-5 py-2.5 bg-slate-800 border border-purple-500/30 text-purple-200 rounded-xl hover:bg-slate-750 transition-all font-semibold text-sm">
+                ← Back to Main App
+              </button>
+            </div>
+
+            <!-- Booking List -->
+            <div class="bg-slate-900 border border-purple-900/30 rounded-2xl mb-8 overflow-hidden shadow-2xl">
+              <div class="p-6 border-b border-purple-900/30">
+                <h2 class="text-lg font-bold text-slate-100">📋 Active Screening Bookings (${allBookings.length})</h2>
+              </div>
+              <div class="overflow-x-auto">
+                ${allBookings.length === 0 ? `
+                  <p class="text-slate-400 text-center py-12">No screening reservations registered yet.</p>
+                ` : `
+                  <table class="w-full text-left border-collapse">
+                    <thead>
+                      <tr class="bg-slate-950 text-slate-400 text-xs uppercase tracking-wider">
+                        <th class="p-4 border-b border-purple-950">ID</th>
+                        <th class="p-4 border-b border-purple-950">Name</th>
+                        <th class="p-4 border-b border-purple-950">Contact Info</th>
+                        <th class="p-4 border-b border-purple-950">Match</th>
+                        <th class="p-4 border-b border-purple-950">Seats</th>
+                        <th class="p-4 border-b border-purple-950">Cost</th>
+                        <th class="p-4 border-b border-purple-950">Status</th>
+                        <th class="p-4 border-b border-purple-950">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody class="text-sm divide-y divide-purple-950/20">
+                      ${allBookings.map(b => `
+                        <tr>
+                          <td class="p-4 font-mono font-bold text-purple-400">${b.bookingId}</td>
+                          <td class="p-4 text-slate-200">${b.userName}</td>
+                          <td class="p-4 text-slate-400 font-mono text-xs">${b.userId}</td>
+                          <td class="p-4 text-slate-200">${b.matchName}</td>
+                          <td class="p-4 text-amber-400 font-bold">${b.seats.join(", ")}</td>
+                          <td class="p-4 text-slate-300">₹${b.total}</td>
+                          <td class="p-4">
+                            <span class="px-2.5 py-1 rounded-full text-xs font-bold ${b.cancelled ? 'bg-red-950 text-red-400 border border-red-800/30' : 'bg-emerald-950 text-emerald-400 border border-emerald-800/30'}">
+                              ${b.cancelled ? "Cancelled" : "Active"}
+                            </span>
+                          </td>
+                          <td class="p-4">
+                            ${!b.cancelled ? `
+                              <button onclick="STATE.confirmCancelBooking = ${JSON.stringify(b).replace(/"/g, '&quot;')}; renderApp();" class="px-3 py-1 bg-red-950/30 hover:bg-red-950 text-red-400 rounded-lg text-xs font-semibold transition-all">
+                                Cancel
+                              </button>
+                            ` : `
+                              <span class="text-slate-600 text-xs">-</span>
+                            `}
+                          </td>
+                        </tr>
+                      `).join("")}
+                    </tbody>
+                  </table>
+                `}
+              </div>
+            </div>
+
+            <!-- Configuration Settings -->
+            <div class="bg-slate-900 border border-purple-900/30 rounded-2xl p-6 mb-8 shadow-2xl">
+              <div class="flex justify-between items-center mb-6">
+                <h2 class="text-lg font-bold text-slate-100">⚙️ Match Settings Configuration</h2>
+                <button onclick="saveMatchSettings()" class="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-sm font-bold rounded-xl shadow-lg shadow-purple-500/20 hover:scale-105 transition-all">
+                  💾 Save Match Changes
+                </button>
+              </div>
+              <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                ${STATE.localMatches.map((m, idx) => `
+                  <div class="bg-slate-950 border border-purple-950 p-5 rounded-xl">
+                    <p class="text-xs text-purple-400 font-bold uppercase tracking-wider mb-3">${m.id}</p>
+                    <div class="space-y-3 mb-4">
+                      <div>
+                        <label class="text-[10px] uppercase text-slate-400 block font-bold">Team 1 Name</label>
+                        <input type="text" value="${m.team1}" oninput="updateLocalMatchField(${idx}, 'team1', this.value)" class="w-full bg-slate-900 border border-purple-900/30 text-slate-200 text-sm p-2 rounded-lg mt-1 focus:outline-none focus:border-purple-500">
+                      </div>
+                      <div>
+                        <label class="text-[10px] uppercase text-slate-400 block font-bold">Team 2 Name</label>
+                        <input type="text" value="${m.team2}" oninput="updateLocalMatchField(${idx}, 'team2', this.value)" class="w-full bg-slate-900 border border-purple-900/30 text-slate-200 text-sm p-2 rounded-lg mt-1 focus:outline-none focus:border-purple-500">
+                      </div>
+                      <div>
+                        <label class="text-[10px] uppercase text-slate-400 block font-bold">Date Title</label>
+                        <input type="text" value="${m.date}" oninput="updateLocalMatchField(${idx}, 'date', this.value)" class="w-full bg-slate-900 border border-purple-900/30 text-slate-200 text-sm p-2 rounded-lg mt-1 focus:outline-none focus:border-purple-500">
+                      </div>
+                      <div>
+                        <label class="text-[10px] uppercase text-slate-400 block font-bold">Time Window</label>
+                        <input type="text" value="${m.time}" oninput="updateLocalMatchField(${idx}, 'time', this.value)" class="w-full bg-slate-900 border border-purple-900/30 text-slate-200 text-sm p-2 rounded-lg mt-1 focus:outline-none focus:border-purple-500">
+                      </div>
+                      <div class="grid grid-cols-2 gap-2">
+                        <div>
+                          <label class="text-[10px] uppercase text-slate-400 block font-bold">Price (INR)</label>
+                          <input type="number" value="${m.price}" oninput="updateLocalMatchField(${idx}, 'price', Number(this.value))" class="w-full bg-slate-900 border border-purple-900/30 text-slate-200 text-sm p-2 rounded-lg mt-1 focus:outline-none focus:border-purple-500">
+                        </div>
+                        <div>
+                          <label class="text-[10px] uppercase text-slate-400 block font-bold">Total Slots</label>
+                          <input type="number" value="${m.totalSlots}" oninput="updateLocalMatchField(${idx}, 'totalSlots', Number(this.value))" class="w-full bg-slate-900 border border-purple-900/30 text-slate-200 text-sm p-2 rounded-lg mt-1 focus:outline-none focus:border-purple-500">
+                        </div>
+                      </div>
+                    </div>
+                    <div class="flex gap-2">
+                      <button onclick="setLocalMatchStatus(${idx}, true)" class="flex-1 py-1.5 text-xs rounded-lg font-bold ${m.active ? 'bg-emerald-600 text-white' : 'bg-slate-900 text-slate-400 border border-slate-800'}">
+                        Active Card
+                      </button>
+                      <button onclick="setLocalMatchStatus(${idx}, false)" class="flex-1 py-1.5 text-xs rounded-lg font-bold ${!m.active ? 'bg-purple-600 text-white' : 'bg-slate-900 text-slate-400 border border-slate-800'}">
+                        Locked (TBA)
+                      </button>
+                    </div>
+                  </div>
+                `).join("")}
+              </div>
+            </div>
+          </div>
+
+          <!-- Cancellation modal -->
+          ${STATE.confirmCancelBooking ? `
+            <div class="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-[2000] flex items-center justify-center p-4">
+              <div class="bg-slate-900 border border-red-500/40 p-6 rounded-2xl max-w-sm w-full text-center shadow-2xl animate-modal-in">
+                <span class="text-3xl block mb-2">⚠️</span>
+                <h3 class="text-lg font-bold text-slate-100 mb-2">Confirm Cancellation</h3>
+                <p class="text-slate-400 text-sm mb-6">
+                  Are you sure you want to cancel booking <strong class="text-purple-400 font-mono">${STATE.confirmCancelBooking.bookingId}</strong>?
+                </p>
+                <div class="flex gap-3">
+                  <button onclick="STATE.confirmCancelBooking = null; renderApp();" class="flex-1 py-2.5 bg-slate-850 hover:bg-slate-800 text-slate-300 rounded-xl font-bold text-sm">
+                    No, Keep
+                  </button>
+                  <button onclick="handleAdminCancelBooking(STATE.confirmCancelBooking)" class="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold text-sm shadow-lg shadow-red-500/20">
+                    Yes, Cancel Book
+                  </button>
+                </div>
+              </div>
+            </div>
+          ` : ""}
+        `;
+        renderToastContainer();
+        return;
+      }
+
+      // Public Interface Template
+      const activeCount = STATE.matches.filter(m => m.active).length;
+      root.innerHTML = `
+        <header class="sticky top-0 z-[100] bg-slate-950/90 backdrop-blur-xl border-b border-purple-900/20 px-6 py-4 transition-all">
+          <div class="max-w-6xl mx-auto flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+              <h1 class="text-xl sm:text-2xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-amber-300">
+                🌌 Cosmic FIFA World Cup Screening
+              </h1>
+              <p class="text-amber-400 text-xs font-bold tracking-wide mt-0.5">⚡ Premium Screenings • Live Match Experience</p>
+              <p class="text-slate-500 text-[10px] mt-0.5 leading-tight">
+                Aston Gaming Arena, Near Baban Vadapav, Chhatrapati Shivaji Maharaj Chowk, Ambernath Station
+              </p>
+            </div>
+            
+            <div class="flex items-center gap-3 self-stretch sm:self-auto justify-between sm:justify-end">
+              ${STATE.user ? `
+                <div class="flex items-center gap-2">
+                  <span class="text-slate-300 text-xs font-medium">👤 ${STATE.user.name}</span>
+                  <button onclick="STATE.showMyTickets = true; renderApp();" class="px-3.5 py-1.5 bg-purple-900/20 border border-purple-500/30 text-purple-300 text-xs font-bold rounded-lg hover:bg-purple-900/40 transition-all">
+                    🎟 My Tickets
+                  </button>
+                  <button onclick="handleLogout()" class="px-3 py-1.5 bg-slate-800 border border-slate-700/50 text-slate-400 text-xs rounded-lg hover:bg-slate-750 transition-all">
+                    Logout
+                  </button>
+                </div>
+              ` : `
+                <button onclick="STATE.showAuth = true; STATE.authError = ''; renderApp();" class="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-xs font-extrabold rounded-xl hover:shadow-lg hover:shadow-purple-500/20 hover:scale-[1.03] transition-all">
+                  Join / Sign In
+                </button>
+              `}
+              <button onclick="STATE.showAdminAuth = true; STATE.adminError = ''; renderApp();" class="text-[10px] text-slate-600 hover:text-purple-400 transition-colors ml-2 font-semibold">
+                Organizer
+              </button>
+            </div>
+          </div>
+        </header>
+
+        <main class="flex-1 max-w-6xl w-full mx-auto px-6 py-12">
+          <div class="text-center max-w-2xl mx-auto mb-16 animate-fade-in">
+            <p class="text-xs uppercase tracking-widest text-purple-400 font-black mb-3">★ Big Screen Live Screening ★</p>
+            <h2 class="text-3xl sm:text-5xl font-extrabold tracking-tight text-white mb-4 leading-tight">
+              Watch the Live Action<br>
+              <span class="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-amber-300">Like Never Before</span>
+            </h2>
+            <p class="text-slate-400 text-sm sm:text-base mb-8">
+              Cosmic Atmosphere, giant live screen projections, thunderous sound systems and premium sports seats at Ambernath's ultimate gaming cafe hub.
+            </p>
+            <div class="flex flex-wrap gap-2.5 justify-center">
+              ${["⚽ FIFA 2026", "📍 Ambernath", "🌌 Cosmic Gaming Cafe", "🎟 Limited Seating Available"].map(tag => `
+                <span class="px-3.5 py-1.5 rounded-full text-xs font-semibold bg-purple-950/30 border border-purple-500/10 text-purple-300">${tag}</span>
+              `).join("")}
+            </div>
+          </div>
+
+          <!-- Cards Match Grid -->
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            ${STATE.matches.map(m => {
+              const remaining = STATE.slots[m.id] ?? m.totalSlots;
+              const soldOut = m.active && remaining <= 0;
+              return `
+                <div class="bg-slate-900 border border-purple-950 rounded-2xl p-6 relative flex flex-col justify-between ${m.active ? 'shadow-xl shadow-purple-950/10 hover:-translate-y-1 hover:shadow-2xl hover:shadow-purple-500/5 hover:border-purple-800/30' : 'opacity-40 filter saturate-50'} transition-all duration-300 animate-slide-up">
+                  <div class="absolute top-4 left-4">
+                    ${m.id === 'match1' ? `
+                      <span class="bg-amber-500 text-slate-950 px-2.5 py-0.5 rounded-full text-[10px] font-black tracking-wider uppercase">⭐ Finals</span>
+                    ` : `
+                      <span class="bg-purple-950 text-purple-300 border border-purple-900/30 px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase">Soon</span>
+                    `}
+                  </div>
+
+                  <div class="flex items-center justify-center gap-4 mt-6 mb-6">
+                    ${getTeamBadgeSVG(m.team1, 56)}
+                    <span class="text-amber-500 font-extrabold text-lg">VS</span>
+                    ${getTeamBadgeSVG(m.team2, 56)}
+                  </div>
+
+                  <div class="text-center mt-2 flex-1 flex flex-col justify-end">
+                    ${m.active ? `
+                      <h4 class="text-slate-200 font-bold text-sm mb-1">${m.name}</h4>
+                      <p class="text-slate-400 text-xs">${m.date} • ${m.time}</p>
+                      <p class="text-amber-400 font-extrabold text-base my-2">₹${m.price} per seat</p>
+                      <p class="text-xs mb-5 ${remaining <= 5 ? 'text-red-400 animate-pulse-glow font-bold' : 'text-slate-500'}">
+                        🎟 Only ${remaining} of ${m.totalSlots} seats remaining
+                      </p>
+                      ${soldOut ? `
+                        <div class="w-full py-3 bg-red-950/50 border border-red-800/30 text-red-400 rounded-xl text-center font-bold text-sm">
+                          🚫 Sold Out
+                        </div>
+                      ` : `
+                        <button onclick="handleBookNow('${m.id}')" class="w-full py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-extrabold text-sm rounded-xl hover:shadow-lg hover:shadow-purple-500/20 transition-all">
+                          🎟 Book Now
+                        </button>
+                      `}
+                    ` : `
+                      <div class="py-8">
+                        <p class="text-slate-500 text-sm font-bold">🔒 Coming Soon</p>
+                        <p class="text-slate-600 text-xs mt-1">Full match cards will be unlocked soon</p>
+                      </div>
+                    `}
+                  </div>
+                </div>
+              `;
+            }).join("")}
+          </div>
+        </main>
+
+        <footer class="border-t border-purple-950/40 py-8 px-6 text-center text-slate-600 text-xs tracking-wide">
+          <p class="mb-1">🌌 Cosmic FIFA Screening Platform • Hosted Live at Aston Gaming Cafe Ambernath</p>
+          <p>Powered securely by Cosmic Screening Solutions • Absolute non-cancellable system</p>
+        </footer>
+
+        <!-- Overlays -->
+        ${renderAuthModalMarkup()}
+        ${renderAdminAuthModalMarkup()}
+        ${renderMyTicketsPanelMarkup()}
+        ${renderPayStepModalMarkup()}
+        ${renderTallyStepModalMarkup()}
+        ${renderTicketModalMarkup()}
+      `;
+
+      renderToastContainer();
+    }
+
+    // Auth Modal Overlay - Refactored exclusively for Phone OTP
+    function renderAuthModalMarkup() {
+      if (!STATE.showAuth) return "";
+      return `
+        <div class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[1000] flex items-center justify-center p-4" onclick="if(event.target===event.currentTarget) closeAllModals()">
+          <div class="bg-slate-900 border border-purple-900/30 rounded-2xl p-6 sm:p-8 max-w-sm w-full relative shadow-2xl animate-modal-in">
+            <button onclick="closeAllModals()" class="absolute top-4 right-4 text-slate-500 hover:text-slate-300 text-xl font-bold">&times;</button>
+            
+            <h2 class="text-xl font-extrabold text-slate-100 flex items-center gap-1.5 mb-1">
+              <span>🌌 Sign In</span>
+            </h2>
+            <p class="text-slate-400 text-xs mb-6">Create or access your Cosmic Profile using Phone OTP to lock in seats</p>
+
+            <div class="space-y-4">
+              <!-- Full Name Input -->
+              <div>
+                <label class="text-[11px] uppercase tracking-wide text-slate-400 font-bold block mb-1">Full Name</label>
+                <input type="text" id="auth-input-name" placeholder="John Doe" oninput="STATE.authName=this.value" value="${STATE.authName}" class="w-full bg-slate-950 border border-purple-950 text-slate-200 text-sm p-3 rounded-xl focus:outline-none focus:border-purple-500">
+              </div>
+
+              <!-- Phone Number Input -->
+              <div>
+                <label class="text-[11px] uppercase tracking-wide text-slate-400 font-bold block mb-1">WhatsApp / Phone Number</label>
+                <input type="tel" placeholder="10-digit mobile number" ${STATE.authOtpSent ? 'disabled' : ''} oninput="STATE.authPhone=this.value" value="${STATE.authPhone}" class="w-full bg-slate-950 border border-purple-950 text-slate-200 text-sm p-3 rounded-xl focus:outline-none focus:border-purple-500 disabled:opacity-50">
+              </div>
+              
+              ${!STATE.authOtpSent ? `
+                <button onclick="sendOtp()" class="w-full py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-sm font-extrabold rounded-xl shadow-lg shadow-purple-500/10 hover:scale-[1.01] transition-all">
+                  Send Verification OTP →
+                </button>
+              ` : `
+                <div>
+                  <p class="text-[11px] text-emerald-400 font-semibold mb-2">✅ Demo Code OTP Sent! (Enter: 123456)</p>
+                  <label class="text-[11px] uppercase tracking-wide text-slate-400 font-bold block mb-1">Verification OTP</label>
+                  <input type="text" placeholder="6-digit verification pin" oninput="STATE.authOtp=this.value" value="${STATE.authOtp}" maxlength="6" class="w-full bg-slate-950 border border-purple-950 text-slate-200 text-sm p-3 rounded-xl focus:outline-none focus:border-purple-500">
+                </div>
+                <button onclick="verifyOtp()" class="w-full py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-sm font-extrabold rounded-xl shadow-lg shadow-purple-500/10 hover:scale-[1.01] transition-all">
+                  Verify Code Pass →
+                </button>
+              `}
+            </div>
+
+            ${STATE.authError ? `
+              <p class="text-xs text-red-400 font-bold mt-4">⚠️ ${STATE.authError}</p>
+            ` : ""}
+
+            <div class="mt-6 p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl">
+              <p class="text-[10px] text-amber-300 leading-normal">
+                ⚠️ Screen passes are strictly non-cancellable and non-refundable. Please review before proceeding.
+              </p>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // Organizer Auth Modal
+    function renderAdminAuthModalMarkup() {
+      if (!STATE.showAdminAuth) return "";
+      return `
+        <div class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[1000] flex items-center justify-center p-4" onclick="if(event.target===event.currentTarget) closeAllModals()">
+          <div class="bg-slate-900 border border-purple-900/30 rounded-2xl p-8 max-w-sm w-full relative shadow-2xl animate-modal-in">
+            <button onclick="closeAllModals()" class="absolute top-4 right-4 text-slate-500 hover:text-slate-300 text-xl font-bold">&times;</button>
+            
+            <h2 class="text-xl font-extrabold text-slate-100 flex items-center gap-1.5 mb-1">🔐 Organizer Secure Access</h2>
+            <p class="text-slate-400 text-xs mb-6">Enter official admin login code to access dashboard settings</p>
+
+            <div class="space-y-4">
+              <div>
+                <label class="text-[11px] uppercase tracking-wide text-slate-400 block font-bold mb-1">Username</label>
+                <input type="text" placeholder="Admin username" oninput="STATE.adminUser=this.value" value="${STATE.adminUser}" class="w-full bg-slate-950 border border-purple-950 text-slate-200 text-sm p-3 rounded-xl focus:outline-none focus:border-purple-500">
+              </div>
+              <div>
+                <label class="text-[11px] uppercase tracking-wide text-slate-400 block font-bold mb-1">Secret Key Password</label>
+                <input type="password" placeholder="Key secret passphrase" oninput="STATE.adminPass=this.value" value="${STATE.adminPass}" class="w-full bg-slate-950 border border-purple-950 text-slate-200 text-sm p-3 rounded-xl focus:outline-none focus:border-purple-500">
+              </div>
+              ${STATE.adminError ? `<p class="text-xs text-red-400 font-bold">⚠️ ${STATE.adminError}</p>` : ""}
+              <button onclick="loginAdmin()" class="w-full py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-sm font-extrabold rounded-xl shadow-lg shadow-purple-500/20 transition-all">
+                Access Organizer Dashboard →
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderMyTicketsPanelMarkup() {
+      if (!STATE.showMyTickets || !STATE.user) return "";
+      const bookings = LS.get(`cosmicBookings_${STATE.user.id}`, []);
+      return `
+        <div class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[1000] flex items-center justify-center p-4" onclick="if(event.target===event.currentTarget) closeAllModals()">
+          <div class="bg-slate-900 border border-purple-900/30 rounded-2xl p-6 sm:p-8 max-w-lg w-full relative shadow-2xl animate-modal-in max-h-[85vh] overflow-y-auto">
+            <button onclick="closeAllModals()" class="absolute top-4 right-4 text-slate-500 hover:text-slate-300 text-xl font-bold">&times;</button>
+            
+            <h2 class="text-xl font-extrabold text-slate-100 mb-1">🎟 My Cosmic Screen Passes</h2>
+            <p class="text-slate-400 text-xs mb-6">Access and showcase confirmed entries at entry points</p>
+
+            ${bookings.length === 0 ? `
+              <div class="text-center py-12 text-slate-500">
+                <p class="text-4xl mb-3">🎟</p>
+                <p class="text-sm">You have no active or historical bookings registered.</p>
+              </div>
+            ` : `
+              <div class="space-y-4">
+                ${bookings.map(b => `
+                  <div class="bg-slate-950 border border-purple-950 p-4 rounded-xl flex justify-between items-center flex-wrap gap-4">
+                    <div>
+                      <p class="text-slate-200 font-bold text-sm">⚽ ${b.matchName}</p>
+                      <p class="text-slate-400 text-xs mt-0.5">${b.date} • Seats: <span class="text-amber-400 font-mono font-bold">${b.seats.join(", ")}</span></p>
+                      <p class="text-purple-400 text-[10px] font-mono mt-1">${b.bookingId}</p>
+                    </div>
+                    <div class="flex flex-col items-end gap-2">
+                      <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold ${b.cancelled ? 'bg-red-950 text-red-400 border border-red-800/20' : 'bg-emerald-950 text-emerald-400 border border-emerald-800/20'}">
+                        ${b.cancelled ? "Cancelled" : "Active pass ✓"}
+                      </span>
+                      ${!b.cancelled ? `
+                        <button onclick="STATE.ticketData = ${JSON.stringify(b).replace(/"/g, '&quot;')}; renderApp();" class="px-3 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-xs font-bold rounded-lg hover:scale-105 transition-all">
+                          Show Entry Ticket
+                        </button>
+                      ` : ""}
+                    </div>
+                  </div>
+                `).join("")}
+              </div>
+            `}
+          </div>
+        </div>
+      `;
+    }
+
+    function renderPayStepModalMarkup() {
+      if (!STATE.payStep) return "";
+      const p = STATE.payStep;
+
+      return `
+        <div class="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-[1000] flex items-center justify-center p-4" onclick="if(event.target===event.currentTarget) closeAllModals()">
+          <div class="bg-slate-900 border border-purple-900/30 rounded-2xl p-6 sm:p-8 max-w-sm w-full relative shadow-2xl animate-modal-in max-h-[90vh] overflow-y-auto">
+            <button onclick="closeAllModals()" class="absolute top-4 right-4 text-slate-500 hover:text-slate-300 text-xl font-bold">&times;</button>
+            
+            <h2 class="text-xl font-extrabold text-slate-100 flex items-center gap-1.5 mb-1">🚀 Secure Order Summary</h2>
+            <p class="text-slate-400 text-xs mb-5">Review match and ticket details below to lock in seats</p>
+
+            <div class="bg-slate-950 border border-purple-950/60 p-4 rounded-xl mb-4">
+              <p class="text-[10px] text-slate-400 uppercase tracking-wider block font-bold mb-1">Selected Match</p>
+              <h4 class="text-slate-200 font-extrabold text-sm">⚽ ${p.match.name}</h4>
+              <p class="text-slate-400 text-xs mt-0.5">${p.match.date} • ${p.match.time}</p>
+              <p class="text-slate-500 text-[10px] mt-1">Aston Gaming Cafe Arena, Ambernath</p>
+              <p class="text-amber-400 font-bold text-xs mt-2">Base ticket cost: ₹${p.base} each</p>
+            </div>
+
+            <div class="mb-4">
+              <label class="text-[11px] uppercase text-slate-400 font-bold block mb-1.5">No. of Tickets (Group Size)</label>
+              <div class="flex gap-2">
+                ${[1, 2].map(n => `
+                  <button onclick="setPayStepData(STATE.bookingMatch, ${n})" class="flex-1 py-2.5 text-xs font-bold rounded-xl transition-all border ${p.people === n ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white border-transparent' : 'bg-slate-950 text-slate-400 border-purple-950/80 hover:bg-slate-950/60'}">
+                    ${n} ${n === 1 ? 'Person' : 'People'}
+                  </button>
+                `).join("")}
+              </div>
+            </div>
+
+            <div class="bg-slate-950 p-3.5 rounded-xl text-xs space-y-2 mb-6">
+              ${p.people === 2 ? `
+                <div class="flex justify-between text-slate-400">
+                  <span>Standard Cost</span>
+                  <span class="line-through">₹${p.subtotal}</span>
+                </div>
+                <div class="flex justify-between text-emerald-400 font-bold">
+                  <span>✨ 10% Couple Special Discount</span>
+                  <span>-₹${p.discount}</span>
+                </div>
+              ` : ""}
+              <div class="flex justify-between items-center pt-2 border-t border-purple-950/40 text-slate-100 font-extrabold text-sm">
+                <span>Total Amount Due</span>
+                <span class="text-amber-400 text-xl font-black">₹${p.total}</span>
+              </div>
+            </div>
+
+            ${p.people === 2 ? `
+              <p class="text-[10px] text-slate-400 mb-6 leading-normal">💡 Booking for over 2? Seamlessly finalize your present purchase before checking out again.</p>
+            ` : ""}
+
+            <button onclick="handlePaid()" class="w-full py-3.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-sm font-extrabold rounded-xl shadow-lg shadow-purple-500/20 hover:scale-[1.01] transition-all animate-glow">
+              ✅ Proceed to Booking Form — ₹${p.total}
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    // Tally Embedded Form Modal
+    function renderTallyStepModalMarkup() {
+      if (!STATE.tallyStep) return "";
+      const t = STATE.tallyStep;
+      return `
+        <div class="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-[1000] flex items-center justify-center p-4" onclick="if(event.target===event.currentTarget) closeAllModals()">
+          <div class="bg-slate-900 border border-purple-900/30 rounded-2xl p-6 sm:p-8 max-w-2xl w-full relative shadow-2xl animate-modal-in max-h-[92vh] overflow-y-auto">
+            <button onclick="closeAllModals()" class="absolute top-4 right-4 text-slate-500 hover:text-slate-300 text-xl font-bold">&times;</button>
+            
+            <h2 class="text-xl font-extrabold text-slate-100 mb-1">📋 Booking Registration Details</h2>
+            <p class="text-slate-400 text-xs mb-5">
+              Fill and submit the details below. Entry passes are instantly dispatched to verified accounts.
+            </p>
+
+            <div class="bg-slate-950 border border-purple-950/60 rounded-xl overflow-hidden mb-5">
+              <iframe
+                src="https://tally.so/r/A7Qgqe"
+                width="100%" height="450" frameborder="0"
+                title="Cosmic FIFA Booking"
+                class="block w-full"
+              ></iframe>
+            </div>
+
+            <div class="p-3 bg-amber-500/5 border border-amber-500/15 rounded-xl flex items-center justify-between mb-5">
+              <span class="text-[10px] text-amber-300">⚠️ Passes strictly assigned non-refundable. Booking user: <strong>${STATE.user.name}</strong></span>
+            </div>
+
+            <button onclick="handleConfirmBooking()" class="w-full py-4 bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-sm font-black rounded-xl shadow-lg shadow-emerald-500/15 transition-all">
+              ✅ Complete & Confirm Seat Pass Registration
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    // Print Pass modal
+    function renderTicketModalMarkup() {
+      if (!STATE.ticketData) return "";
+      const b = STATE.ticketData;
+      const passPhone = STATE.user?.phone || "";
+
+      return `
+        <div class="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-[1000] flex items-center justify-center p-4" onclick="if(event.target===event.currentTarget) closeAllModals()">
+          <div class="bg-slate-900 border border-purple-900/30 rounded-2xl p-6 sm:p-8 max-w-xl w-full relative shadow-2xl animate-modal-in max-h-[90vh] overflow-y-auto">
+            <button onclick="closeAllModals()" class="absolute top-4 right-4 text-slate-500 hover:text-slate-300 text-xl font-bold print:hidden">&times;</button>
+            
+            <div id="ticket-print-wrapper" class="w-full">
+              <div class="border-2 border-dashed border-purple-500/50 rounded-2xl p-6 sm:p-8 bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 relative overflow-hidden shadow-2xl">
+                
+                <div class="absolute top-[-40px] right-[-40px] w-36 h-36 rounded-full bg-purple-500/10 blur-xl"></div>
+                <div class="absolute bottom-[-40px] left-[-40px] w-36 h-36 rounded-full bg-amber-500/10 blur-xl"></div>
+
+                <div class="text-center border-b border-purple-950/60 pb-6 mb-6">
+                  <h2 class="text-lg sm:text-2xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-amber-300">
+                    🌌 Cosmic FIFA World Cup Screening
+                  </h2>
+                  <span class="inline-block mt-3 px-3.5 py-1 text-xs font-black tracking-widest bg-emerald-950 text-emerald-400 rounded-full border border-emerald-800/20">
+                    CONFIRMED ENTRY PASS ✓
+                  </span>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4 text-left mb-6">
+                  ${[
+                    { label: "Selected Match Card", val: b.matchName },
+                    { label: "Timing Date", val: `${b.date} • ${b.time}` },
+                    { label: "Venue Address", val: b.venue },
+                    { label: "Registered Booker", val: b.userName },
+                    { label: "People Count", val: `${b.people} Person(s)` },
+                    { label: "Transaction Cost", val: `₹${b.total}` }
+                  ].map(item => `
+                    <div class="bg-slate-900/50 border border-purple-950/40 p-3 rounded-xl">
+                      <span class="text-[9px] uppercase tracking-wider text-slate-400 font-bold block">${item.label}</span>
+                      <p class="text-slate-200 text-xs font-semibold mt-1 leading-normal">${item.val}</p>
+                    </div>
+                  `).join("")}
+                </div>
+
+                <div class="text-center mb-6">
+                  <p class="text-[10px] tracking-widest uppercase text-slate-400 font-bold mb-2">Assigned Seat Pass Number(s)</p>
+                  <div class="flex justify-center gap-1.5 flex-wrap">
+                    ${b.seats.map(s => `
+                      <span class="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-extrabold text-xl rounded-xl tracking-tight shadow-md shadow-purple-500/10">
+                        ${s}
+                      </span>
+                    `).join("")}
+                  </div>
+                </div>
+
+                <div class="text-center">
+                  <p class="text-purple-400 font-mono text-xs font-bold block">Cosmic ID: ${b.bookingId}</p>
+                  <p class="text-[9px] text-slate-600 mt-2">Non-Transferable • Pass strictly non-refundable and non-cancellable</p>
+                </div>
+              </div>
+
+              <div class="flex flex-wrap gap-2.5 mt-6 print:hidden">
+                <button onclick="window.print()" class="flex-1 min-w-[130px] py-3 bg-slate-800 border border-purple-500/30 text-purple-200 font-extrabold text-xs rounded-xl hover:bg-slate-750 transition-all">
+                  🖨 Print Paper Ticket
+                </button>
+                <button onclick="shareTicketWhatsApp('${b.bookingId}', '${b.matchName}', '${b.date}', '${b.time}', '${b.seats.join(', ')}', '${b.total}', '${passPhone}')" class="flex-1 min-w-[130px] py-3 bg-emerald-900 border border-emerald-500/40 text-emerald-200 font-extrabold text-xs rounded-xl hover:bg-emerald-850 transition-all">
+                  📱 Share to WhatsApp
+                </button>
+                <button onclick="simulateEmailNotification('${STATE.user?.id || "your phone account"}')" class="flex-1 min-w-[130px] py-3 bg-indigo-900 border border-indigo-500/40 text-indigo-200 font-extrabold text-xs rounded-xl hover:bg-indigo-850 transition-all">
+                  📧 Email Pass Copy
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // External communication integrations
+    function shareTicketWhatsApp(id, match, date, time, seats, cost, phone) {
+      const msg = encodeURIComponent(
+        `🌌 Cosmic FIFA Ticket Confirmed!\nBooking ID: ${id}\nSeats: ${seats}\n${match} — ${date} ${time}\nVenue: Aston Gaming Cafe Arena Ambernath\nTotal: ₹${cost}\n⚠️ Non-cancellable pass`
+      );
+      const url = phone ? `https://wa.me/91${phone}?text=${msg}` : `https://wa.me/?text=${msg}`;
+      window.open(url, "_blank");
+    }
+
+    function simulateEmailNotification(target) {
+      showToast(`📧 A confirmed ticket PDF copy sent to your registration: ${target}!`);
+    }
+
+    // Toast node manager
+    function renderToastContainer() {
+      const containerId = "toast-render-target";
+      let container = document.getElementById(containerId);
+      if (!container) {
+        container = document.createElement("div");
+        container.id = containerId;
+        document.body.appendChild(container);
+      }
+
+      if (!STATE.toast) {
+        container.innerHTML = "";
+        return;
+      }
+
+      container.innerHTML = `
+        <div class="fixed bottom-6 right-6 z-[9999] bg-indigo-950 border border-purple-500 text-slate-100 px-6 py-4 rounded-xl shadow-2xl flex items-center justify-between gap-4 max-w-sm animate-fade-in">
+          <p class="text-sm font-semibold">${STATE.toast}</p>
+          <button onclick="STATE.toast = null; renderApp();" class="text-slate-400 hover:text-slate-100 text-lg font-bold">&times;</button>
+        </div>
+      `;
+    }
+
+    window.onload = function() {
+      initSlots();
+      renderStarField();
+      renderApp();
+
+      window.addEventListener("keydown", e => {
+        if (e.key === "Escape") {
+          closeAllModals();
+        }
+      });
+    };
+  </script>
+</body>
+</html>
